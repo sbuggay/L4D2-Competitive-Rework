@@ -5,13 +5,12 @@
 #include <sdktools>
 #include <l4d2util_rounds>
 
-
 public Plugin myinfo =
 {
 	name = "Random Rifle",
-	author = "devan",
-	description = "",
-	version = "0.2",
+	author = "pwnmonkey",
+	description = "Gives a random hunting rifle to a human survivor at the start of each round.",
+	version = "1.0",
 	url = "https://github.com/SirPlease/L4D2-Competitive-Rework"
 };
 
@@ -34,7 +33,7 @@ stock bool IsSurvivor(int client)
 void GiveStartingItems()
 {
 	ArrayList array = new ArrayList();
-		
+
 	for (int i = 1; i <= MaxClients; i++) {
 		if (IsSurvivor(i) && !IsFakeClient(i)) {
 			array.Push(i);
