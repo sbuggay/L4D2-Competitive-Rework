@@ -93,9 +93,9 @@ void UpdatePanel()
 	menuPanel.DrawText(ServerBuffer);
 	
 	menuPanel.DrawText(" ");
-	menuPanel.DrawText("▸ Commands:");
-	menuPanel.DrawText(FooterGet(cmdFooter, curCmd));
-	menuPanel.DrawText(" ");
+	// menuPanel.DrawText("▸ Commands:");
+	// menuPanel.DrawText(FooterGet(cmdFooter, curCmd));
+	// menuPanel.DrawText(" ");
 	
 	char nameBuf[64];
 	
