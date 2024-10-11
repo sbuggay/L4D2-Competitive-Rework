@@ -49,24 +49,16 @@ public Action:Shuffle(client, argCount)
     ShuffleArrayList(array);
 
     // Put half on surv, the other half on inf
-    int half = RoundToFloor(array.Length / 2.0) + 1;
     for (int i = 0; i < array.Length; i++) {
-        if (i < half) {
-            PrintToChatAll("Placing client %d on survivor", array.Get(i));
+        if (i % 2 == 0) {
             ClientCommand(array.Get(i), "jointeam 2");
         }
         else {
-            PrintToChatAll("Placing client %d on infected", array.Get(i));
             ChangeClientTeam(array.Get(i), TEAM_ZOMBIE);
         }
     }
 
 	return Plugin_Handled;
-}
-
-public Action:Timer_Kick(Handle:timer, any:bot) {
-	KickClient(bot, "Fake Player");
-	return Plugin_Stop;
 }
 
 public void ShuffleArrayList(ArrayList array) {
