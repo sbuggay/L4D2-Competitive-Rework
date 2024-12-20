@@ -60,10 +60,26 @@ Action Unready_Cmd(int client, int args)
 			{
 				return Plugin_Handled;
 			}
+
+			// Special case, if we are in team mode, unready everyone on that team
+			if (readyUpMode == ReadyMode_TeamReady) {
+				int team = GetClientTeam(client);
+				for (int i = 1; i <= MAXPLAYERS; i++)
+				{
+					if ((IsClientAndInGame(i) && team != GetClientTeam(i)) || i == client) continue;
+					SetPlayerReady(i, false);
+				}
+			}
+
 			CancelFullReady(client, readyStatus);
 		}
 	}
 	return Plugin_Handled;
+}
+
+bool IsClientAndInGame(int index)
+{
+    return (index > 0 && index <= MaxClients && IsClientInGame(index));
 }
 
 Action ToggleReady_Cmd(int client, int args)
