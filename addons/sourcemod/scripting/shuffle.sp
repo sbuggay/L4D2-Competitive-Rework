@@ -32,7 +32,7 @@ public Action:Shuffle(client, argCount)
 	for (int i = 1; i <= MaxClients; i++)
 	{
         // Push everyone who's not spectating and not a bot into array
-		if (IsClientAndInGame(i) && !IsFakeClient(i))
+		if (IsClientAndInGame(i) && !IsFakeClient(i) && GetClientTeam(i) != 1)
 		{
 			array.Push(i);
 		}
