@@ -16,6 +16,7 @@
 
 ArrayList h_whosHadTank;
 ArrayList h_tankQueue;
+ArrayList h_tankOptions;
 
 ConVar 
     hTankPrint,
@@ -74,6 +75,7 @@ public void OnPluginStart()
     // Initialise the tank arrays/data values
     h_whosHadTank = new ArrayList(ByteCountToCells(64));
     h_tankQueue = new ArrayList(ByteCountToCells(64));
+    h_tankOptions = new ArrayList(ByteCountToCells(64));
 
     // Admin commands
     RegAdminCmd("sm_tankshuffle", TankShuffle_Cmd, ADMFLAG_SLAY, "Re-picks at random someone to become tank.");
@@ -479,35 +481,45 @@ void chooseTank(any data)
         return;
     }
 
-    queuedTankSteamId = "";
+    h_tankOptions.Clear();
 
-    int nextTankIndex = PeekNextTankIndexInTheQueue();
-
-    if (nextTankIndex == -1)
+    // For now, let's just pick one at random
+    for (int i = 1; i <= MaxClients; i++)
     {
-        EnqueueNewInfectedPlayers();
-        nextTankIndex = PeekNextTankIndexInTheQueue();
+        if (IS_VALID_INFECTED(i) && !IsFakeClient(i))
+            h_tankOptions.PushInt(i);
     }
 
-    if (nextTankIndex == -1)
-    {
-        RemoveAllInfectedFrom(h_tankQueue);
-        RemoveAllInfectedFrom(h_whosHadTank);
-        EnqueueNewInfectedPlayers();
-        nextTankIndex = PeekNextTankIndexInTheQueue();
-    }
 
-    if (nextTankIndex == -1)
-        return;
+    // queuedTankSteamId = "";
 
-    char steamId[64];
+    // int nextTankIndex = PeekNextTankIndexInTheQueue();
 
-    h_tankQueue.GetString(nextTankIndex, steamId, sizeof(steamId));
+    // if (nextTankIndex == -1)
+    // {
+    //     EnqueueNewInfectedPlayers();
+    //     nextTankIndex = PeekNextTankIndexInTheQueue();
+    // }
 
-    strcopy(queuedTankSteamId, sizeof(queuedTankSteamId), steamId);
+    // if (nextTankIndex == -1)
+    // {
+    //     RemoveAllInfectedFrom(h_tankQueue);
+    //     RemoveAllInfectedFrom(h_whosHadTank);
+    //     EnqueueNewInfectedPlayers();
+    //     nextTankIndex = PeekNextTankIndexInTheQueue();
+    // }
 
-    if (StrEqual(tankInitiallyChosen, ""))
-        strcopy(tankInitiallyChosen, sizeof(tankInitiallyChosen), steamId);
+    // if (nextTankIndex == -1)
+    //     return;
+
+    // char steamId[64];
+
+    // h_tankQueue.GetString(nextTankIndex, steamId, sizeof(steamId));
+
+    // strcopy(queuedTankSteamId, sizeof(queuedTankSteamId), steamId);
+
+    // if (StrEqual(tankInitiallyChosen, ""))
+    //     strcopy(tankInitiallyChosen, sizeof(tankInitiallyChosen), steamId);
 }
 
 /**
@@ -517,11 +529,26 @@ void setTankTickets(const char[] steamId, int tickets)
 {
     int tankClientId = getInfectedPlayerBySteamId(steamId);
     
+    /*
+    On first round, randomly select (or maybe just let he queue work?)
+    On second round, pick the player that has the same MMR.
+    */
+
     for (int i = 1; i <= MaxClients; i++)
     {
         if (IS_VALID_INFECTED(i) && !IsFakeClient(i))
             L4D2Direct_SetTankTickets(i, (i == tankClientId) ? tickets : 0);
     }
+
+    if (!InSecondHalfOfRound()) {
+        // Clear the first half player
+
+    }
+    else {
+
+    }
+
+    
 }
 
 /**

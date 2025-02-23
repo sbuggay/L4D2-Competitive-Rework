@@ -5,6 +5,7 @@
 #include <l4d2util>
 #include <l4d2util_constants>
 
+#define DEFAULT_MMR 1000
 #define DEBUG 0
 
 Database db = null;
@@ -33,11 +34,13 @@ public void OnPluginStart()
 		PrintToChatAll(g_sError);
     }
 
-    SQL_Query(db, "create table if not exists player (id integer primary key, steamid64 text unique, mmr integer, rounds integer, wins integer, lastround timestamp)");
+    SQL_Query(db, "create table if not exists player (id integer primary key, steamid64 text unique, name text, mmr integer, rounds integer, wins integer, lastround timestamp)");
 
     delete kv;
 
     RegConsoleCmd("sm_balance", Balance);
+    RegConsoleCmd("sm_bal", Balance);
+    RegConsoleCmd("sm_bal_test", Hello);
     #if DEBUG
         RegConsoleCmd("sm_balance_test", BalanceTest);
     #endif
@@ -52,14 +55,24 @@ public int PlayerCount() {
     return players;
 }
 
+public Action:Hello(int client, int args)
+{
+    bool b_AreTeamsFlipped = GameRules_GetProp("m_bAreTeamsFlipped");
+
+    PrintToChatAll("Hello World");
+
+    // PrintToConsoleAll("Team 1: %d", L4D_GetTeamScore(1));
+    // PrintToConsoleAll("Team 2: %d", L4D_GetTeamScore(2));
+
+    return Plugin_Handled;
+}
+
 public Action:Balance(int client, int args)
 {
     int total = 0;
     int[] players = new int[MaxClients];
     g_hClientToSteamID = CreateKeyValues("");
     Handle hClientToMMR = CreateKeyValues("");
-
-    PrintToChatAll("Test");
 
     // Add all players to the db
     for (int i = 1; i <= MaxClients; i++)
@@ -70,8 +83,12 @@ public Action:Balance(int client, int args)
         char steamid[25];
         GetClientAuthId(i, AuthId_SteamID64, steamid, sizeof(steamid));
 
-        Handle hPlayerAddStmt = SQL_PrepareQuery(db, "insert or ignore into player (steamid64, mmr, rounds, wins) values (?, 1500, 0, 0)", g_sError, sizeof(g_sError));
+        char tmpBuffer[64];
+	    GetClientName(i, tmpBuffer, sizeof(tmpBuffer));
+
+        Handle hPlayerAddStmt = SQL_PrepareQuery(db, "insert or ignore into player (steamid64, name, mmr, rounds, wins) values (?, ?, 1000, 0, 0)", g_sError, sizeof(g_sError));
         SQL_BindParamString(hPlayerAddStmt, 0, steamid, false);
+        SQL_BindParamString(hPlayerAddStmt, 1, tmpBuffer, false);
         SQL_Execute(hPlayerAddStmt);
 
         delete hPlayerAddStmt;
@@ -82,7 +99,7 @@ public Action:Balance(int client, int args)
 
         // Grab MMR and put it in our map
         KvSetNum(hClientToMMR, sClient, GetMMR(i));
-        // PrintToChatAll("%d", KvGetNum(hClientToMMR, sClient));
+        PrintToConsoleAll("%d", KvGetNum(hClientToMMR, sClient));
 
         players[total++] = i;
     }
@@ -104,34 +121,26 @@ public Action:Balance(int client, int args)
         int option = teamOptions[comboIndex];
         int flag = 0x80;
         int playerIndex = 0;
-
-        PrintToChatAll("%x", option);
-
         int sIndex = 0;
         int iIndex = 0;
 
         while(flag) {
-            PrintToChatAll("%d %d %d %d", flag, sIndex, iIndex, playerIndex);
-            if (flag & option > 1) {
-                PrintToChatAll("Adding to survivor team");
+            if ((flag & option) >= 1) {
                 survivors[sIndex++] = players[playerIndex];
             }
             else {
-                PrintToChatAll("Added to infected team");
                 infected[iIndex++] = players[playerIndex];
             }
 
             playerIndex++;
             flag = flag >> 1;
-            PrintToChatAll("Moving flag %x", flag);
         }
 
         // Ignore teams with +1 diff
         if ((sIndex > iIndex) ? (sIndex - iIndex) : (iIndex - sIndex) > 1) continue;
-        PrintToChatAll("Getting diff");
-
         float diff = MmrDiff(survivors, sIndex, infected, iIndex, hClientToMMR);
-        PrintToChatAll("%f", diff);
+
+        PrintToConsoleAll("%x %f", option, diff);
         
         if (diff < minDiff) {
             // For some reason we don't have arraycopy...
@@ -201,12 +210,14 @@ float MmrDiff(int []team1, int team1Size, int []team2, int team2Size, Handle hCl
 
     for (int i = 0; i < team1Size; i++) {
         IntToString(team1[i], sClient, sizeof(sClient));
-        team1Mmr += KvGetNum(hClientToMMR, sClient, 1500);
+        team1Mmr += KvGetNum(hClientToMMR, sClient, DEFAULT_MMR);
+        PrintToConsoleAll("%d", team1Mmr);
     }
 
     for (int i = 0; i < team2Size; i++) {
         IntToString(team2[i], sClient, sizeof(sClient));
-        team2Mmr += KvGetNum(hClientToMMR, sClient, 1500);
+        team2Mmr += KvGetNum(hClientToMMR, sClient, DEFAULT_MMR);
+        PrintToConsoleAll("%d", team2Mmr);
     }
 
     float averageTeam1 = (team1Size > 0) ? (team1Mmr / team1Size) : 0;
@@ -217,14 +228,20 @@ float MmrDiff(int []team1, int team1Size, int []team2, int team2Size, Handle hCl
 
 public void L4D2_OnEndVersusModeRound_Post()
 {
+    PrintToConsoleAll("L4D2_OnEndVersusModeRound_Post");
+
+    // int iSurvivorIndex = GameRules_GetProp("m_bAreTeamsFlipped");
+    int iSurvivorScore = L4D_GetTeamScore(1);
+    int iInfectedScore = L4D_GetTeamScore(2);
+
+    PrintToConsoleAll("Survivor round score %d", iSurvivorScore);
+    PrintToConsoleAll("Infected round score %d", iInfectedScore);
+
     if (!InSecondHalfOfRound()) {
         return;
     }
 
-    int iSurvivorIndex = GameRules_GetProp("m_bAreTeamsFlipped");
-    int iSurvivorScore = L4D2Direct_GetVSCampaignScore(iSurvivorIndex);
-    int iInfectedScore = L4D2Direct_GetVSCampaignScore(1 - iSurvivorIndex);
-
+    // Todo: still update rounds played
     if (iSurvivorScore == iInfectedScore) {
         return;
     }
@@ -233,9 +250,16 @@ public void L4D2_OnEndVersusModeRound_Post()
     int iWinnerTeam = bSurvivorsAreWinning ? TEAM_SURVIVOR : TEAM_ZOMBIE;
     int iLosersTeam = bSurvivorsAreWinning ? TEAM_ZOMBIE : TEAM_SURVIVOR;
 
+    if (bSurvivorsAreWinning) {
+        PrintToConsoleAll("Survivors won");
+    }
+    else {
+        PrintToConsoleAll("Infected won");
+    }
+
     // TODO: Need to exclude players who were not in the game when the round started.
-    UpdateMMR(iWinnerTeam, 15);
-    UpdateMMR(iLosersTeam, -15);
+    // UpdateMMR(iWinnerTeam, 15);
+    // UpdateMMR(iLosersTeam, -15);
 }
 
 void UpdateMMR(int team, int delta) {
@@ -245,7 +269,11 @@ void UpdateMMR(int team, int delta) {
             continue;
 
         Handle hPlayerUpdateStmt = SQL_PrepareQuery(db, "update player set mmr = mmr + ?, rounds = rounds + 1, wins = wins + ?, lastround = current_timestamp where steamid64 = ?", g_sError, sizeof(g_sError));
-        
+
+        if (hPlayerUpdateStmt == null) {
+            PrintToConsoleAll("Error in UpdateMMR query");
+        }
+
         char steamid[25];
         GetClientAuthId(client, AuthId_SteamID64, steamid, sizeof(steamid));
         SQL_BindParamInt(hPlayerUpdateStmt, 0, delta, false);
@@ -275,16 +303,16 @@ int GetMMR(int client) {
     KvGetString(g_hClientToSteamID, sClient, steamid, sizeof(steamid));
 
     Handle hPlayerScore = SQL_PrepareQuery(db, "select mmr from player where steamid64 = ?", g_sError, sizeof(g_sError));
-    int result = 1500;
+    int result = DEFAULT_MMR;
 
     SQL_BindParamString(hPlayerScore, 0, steamid, false);
 
     if (SQL_Execute(hPlayerScore)) {
         SQL_FetchRow(hPlayerScore);
         result = SQL_FetchInt(hPlayerScore, 0);
-        #if DEBUG
-        PrintToChatAll("%s mmr = %d", steamid, result);
-        #endif
+        // #if DEBUG
+        PrintToConsoleAll("%s mmr = %d", steamid, result);
+        // #endif
     }
 
     delete hPlayerScore;
