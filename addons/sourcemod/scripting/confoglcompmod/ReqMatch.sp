@@ -296,7 +296,7 @@ static void RM_Match_Unload(bool bForced = false)
 
 static Action RM_Match_MapRestart_Timer(Handle hTimer, DataPack hDp)
 {
-	ServerCommand("sm plugins load_lock");	  // rework
+	// ServerCommand("sm plugins load_lock");	  // rework
 
 	if (RM_bDebugEnabled || IsDebugEnabled())
 	{
